@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Đoán Tên Con Vật</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Nunito:wght@600;800&display=swap">
+<style>
+/* Layout: one playful card centered on a sky "meadow"; scoreboard on top, letter tiles below the word, game controls at the bottom. */
+:root {
+  --bg: #DCEEF7;
+  --bg2: #F1F8EC;
+  --card: #FFFFFF;
+  --ink: #1F2B48;
+  --muted: #5B6A8A;
+  --sun: #F5B82E;
+  --sun-ink: #3A2A00;
+  --tile: #FFF4D6;
+  --tile-edge: #E9C86A;
+  --slot: #EEF3FA;
+  --slot-edge: #9FB2D3;
+  --good: #2E9E55;
+  --good-bg: #E3F6E9;
+  --bad: #D9503D;
+  --bad-bg: #FCE9E5;
+  --shadow: 0 6px 0 rgba(31,43,72,.12);
+  --display: "Baloo 2", "Comic Sans MS", system-ui, sans-serif;
+  --body: "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not(.day) {
+    --bg: #121833; --bg2: #1B1F3A; --card: #1E2647; --ink: #EFE9D6; --muted: #A9AEC9;
+    --sun: #E8A33D; --sun-ink: #2A1A00; --tile: #2D3560; --tile-edge: #4B5590;
+    --slot: #262E55; --slot-edge: #5A66A3; --good: #6BD08F; --good-bg: #1F3A35;
+    --bad: #F08A7A; --bad-bg: #3E2533; --shadow: 0 6px 0 rgba(0,0,0,.35); color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]:not(.day), :root.night {
+  --bg: #121833; --bg2: #1B1F3A; --card: #1E2647; --ink: #EFE9D6; --muted: #A9AEC9;
+  --sun: #E8A33D; --sun-ink: #2A1A00; --tile: #2D3560; --tile-edge: #4B5590;
+  --slot: #262E55; --slot-edge: #5A66A3; --good: #6BD08F; --good-bg: #1F3A35;
+  --bad: #F08A7A; --bad-bg: #3E2533; --shadow: 0 6px 0 rgba(0,0,0,.35); color-scheme: dark;
+}
+:root.day { color-scheme: light; }
+
+* { box-sizing: border-box; }
+html, body { min-height: 100%; }
+body {
+  margin: 0;
+  background: linear-gradient(180deg, var(--bg) 0%, var(--bg2) 100%) fixed, var(--bg);
+  background-color: var(--bg);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 17px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 16px 28px;
+  transition: background-color .4s;
+}
+.wrap { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+
+header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+h1 { font-family: var(--display); font-weight: 800; font-size: clamp(26px, 6vw, 36px); line-height: 1; margin: 0; text-wrap: balance; }
+h1 small { display: block; font-family: var(--body); font-size: 14px; color: var(--muted); font-weight: 600; margin-top: 4px; letter-spacing: .02em; }
+
+button { font-family: var(--display); font-weight: 800; cursor: pointer; border: 0; color: inherit; }
+button:focus-visible { outline: 4px solid var(--sun); outline-offset: 3px; }
+
+.night-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--card); border-radius: 999px; padding: 8px 16px 8px 10px;
+  font-size: 17px; box-shadow: var(--shadow);
+}
+.night-btn .orb { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-size: 18px; background: var(--tile); }
+:root.night .night-btn .orb, :root.is-night .night-btn .orb { box-shadow: 0 0 18px 4px rgba(232,163,61,.55); background: #3B3A2A; }
+
+.score { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.chip { background: var(--card); border-radius: 18px; padding: 10px 12px; text-align: center; box-shadow: var(--shadow); }
+.chip b { display: block; font-family: var(--display); font-size: 34px; line-height: 1; font-variant-numeric: tabular-nums; }
+.chip span { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.chip.good b { color: var(--good); }
+.chip.bad b { color: var(--bad); }
+
+.card { background: var(--card); border-radius: 28px; padding: 22px 18px 24px; box-shadow: var(--shadow); display: flex; flex-direction: column; align-items: center; gap: 18px; position: relative; overflow: hidden; }
+.round-label { font-size: 14px; font-weight: 800; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; }
+.pic { font-size: clamp(110px, 32vw, 160px); line-height: 1.05; user-select: none; filter: drop-shadow(0 6px 0 rgba(0,0,0,.08)); }
+.pic.pop { animation: pop .45s ease; }
+@keyframes pop { 0% { transform: scale(.6) rotate(-8deg); } 70% { transform: scale(1.08) rotate(3deg); } 100% { transform: scale(1); } }
+.hear { background: var(--slot); border-radius: 999px; padding: 6px 14px; font-size: 15px; }
+.hear[disabled] { cursor: default; color: var(--muted); font-size: 13px; }
+
+.word { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 6px; max-width: 100%; }
+.w { display: flex; gap: 6px; }
+.w + .w { margin-left: 14px; }
+.ch {
+  width: clamp(40px, 11vw, 54px); height: clamp(52px, 14vw, 66px);
+  display: grid; place-items: center; border-radius: 14px;
+  font-family: var(--display); font-weight: 800; font-size: clamp(28px, 8vw, 38px); line-height: 1;
+  padding-top: 4px;
+}
+.ch.fixed { color: var(--ink); }
+.ch.blank { background: var(--slot); border: 3px dashed var(--slot-edge); color: var(--ink); cursor: pointer; }
+.ch.blank.active { border-style: solid; border-color: var(--sun); }
+.ch.blank.filled { border-style: solid; }
+.ch.right { background: var(--good-bg); border: 3px solid var(--good); color: var(--good); }
+.ch.wrong { background: var(--bad-bg); border: 3px solid var(--bad); color: var(--bad); }
+
+.hint { font-size: 15px; color: var(--muted); text-align: center; margin: 0; }
+.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; width: 100%; max-width: 380px; }
+.tile {
+  background: var(--tile); border: 3px solid var(--tile-edge); border-radius: 16px;
+  font-size: 32px; padding: 6px 0 2px; box-shadow: 0 4px 0 var(--tile-edge);
+  transition: transform .08s;
+}
+.tile:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--tile-edge); }
+.tile[disabled] { opacity: .25; cursor: default; box-shadow: none; }
+
+.actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.btn { border-radius: 999px; padding: 12px 22px; font-size: 20px; box-shadow: var(--shadow); }
+.btn.primary { background: var(--sun); color: var(--sun-ink); }
+.btn.primary[disabled] { opacity: .45; cursor: default; }
+.btn.soft { background: var(--slot); }
+
+.feedback { min-height: 0; text-align: center; font-family: var(--display); font-weight: 800; font-size: 26px; line-height: 1.15; margin: 0; }
+.feedback.good { color: var(--good); }
+.feedback.bad { color: var(--bad); }
+.feedback small { display: block; font-family: var(--body); font-size: 16px; color: var(--muted); margin-top: 4px; }
+
+.controls { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.controls .btn { background: var(--card); font-size: 18px; }
+.controls .stop { color: var(--bad); }
+
+.burst { position: absolute; pointer-events: none; font-size: 26px; animation: fly 1s ease-out forwards; }
+@keyframes fly { from { transform: translate(0,0) scale(.6); opacity: 1; } to { transform: translate(var(--dx), var(--dy)) scale(1.2) rotate(30deg); opacity: 0; } }
+
+.summary { text-align: center; display: flex; flex-direction: column; gap: 14px; align-items: center; }
+.summary h2 { font-family: var(--display); font-size: 32px; margin: 0; line-height: 1.1; }
+.stars { font-size: 46px; letter-spacing: 4px; }
+.summary p { margin: 0; font-size: 18px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pic.pop, .burst { animation: none; }
+  .burst { display: none; }
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Đoán Tên Con Vật<small>Điền 3 chữ còn thiếu nhé!</small></h1>
+    <button class="night-btn" id="nightBtn" type="button" aria-pressed="false">
+      <span class="orb" id="nightOrb">🌙</span><span id="nightText">Đèn ngủ</span>
+    </button>
+  </header>
+
+  <section class="score" aria-live="polite">
+    <div class="chip good"><b id="sGood">0</b><span>Đúng</span></div>
+    <div class="chip bad"><b id="sBad">0</b><span>Sai</span></div>
+    <div class="chip"><b id="sRound">0</b><span>Lượt đã chơi</span></div>
+  </section>
+
+  <main class="card" id="play">
+    <div class="round-label" id="roundLabel">Lượt 1</div>
+    <div class="pic" id="pic" aria-hidden="true">🐱</div>
+    <div class="word" id="word" aria-label="Tên con vật"></div>
+    <p class="hint" id="hint">Bấm vào chữ cái bên dưới để điền vào ô trống.</p>
+    <div class="tiles" id="tiles"></div>
+    <p class="feedback" id="feedback" hidden></p>
+    <div class="actions">
+      <button class="btn soft" id="clearBtn" type="button">↺ Xoá</button>
+      <button class="btn primary" id="checkBtn" type="button" disabled>Kiểm tra ✓</button>
+      <button class="btn primary" id="nextBtn" type="button" hidden>Con tiếp theo ➜</button>
+    </div>
+  </main>
+
+  <main class="card summary" id="summary" hidden>
+    <div class="stars" id="stars">⭐⭐⭐</div>
+    <h2 id="sumTitle">Con giỏi lắm!</h2>
+    <p id="sumText"></p>
+    <div class="actions">
+      <button class="btn primary" id="resumeBtn" type="button">Chơi tiếp ➜</button>
+      <button class="btn soft" id="restartBtn2" type="button">↻ Chơi lại từ đầu</button>
+    </div>
+  </main>
+
+  <div class="controls">
+    <button class="btn stop" id="stopBtn" type="button">■ Dừng chơi</button>
+    <button class="btn" id="restartBtn" type="button">↻ Chơi lại từ đầu</button>
+  </div>
+</div>
+
+<script>
+const ANIMALS = [
+  ["🐱","con mèo"],["🐶","con chó"],["🐓","gà trống"],["🐤","gà con"],["🦆","con vịt"],
+  ["🐷","con lợn"],["🐮","con bò"],["🐴","con ngựa"],["🐐","con dê"],["🐑","con cừu"],
+  ["🐰","con thỏ"],["🐭","con chuột"],["🐯","con hổ"],["🦁","sư tử"],["🐘","con voi"],
+  ["🐵","con khỉ"],["🦒","hươu cao cổ"],["🦓","ngựa vằn"],["🐻","con gấu"],["🐼","gấu trúc"],
+  ["🦊","con cáo"],["🐺","chó sói"],["🐸","con ếch"],["🐊","cá sấu"],["🐢","con rùa"],
+  ["🐍","con rắn"],["🐬","cá heo"],["🐳","cá voi"],["🦈","cá mập"],["🐙","bạch tuộc"],
+  ["🦀","con cua"],["🦐","con tôm"],["🐧","chim cánh cụt"],["🦉","cú mèo"],["🦅","đại bàng"],
+  ["🦚","con công"],["🦜","con vẹt"],["🦋","con bướm"],["🐝","con ong"],["🐜","con kiến"],
+  ["🐞","bọ rùa"],["🐌","ốc sên"],["🦇","con dơi"],["🐪","lạc đà"],["🦏","tê giác"],
+  ["🦛","hà mã"],["🦘","chuột túi"],["🦔","con nhím"],["🐿️","con sóc"],["🦢","thiên nga"],
+  ["🦩","hồng hạc"],["🐟","con cá"],["🦌","con hươu"],["🕊️","bồ câu"],["🦎","thằn lằn"]
+];
+
+// Vietnamese letter families: same base letter with different tone marks.
+const FAMILIES = ["aàáảãạ","ăằắẳẵặ","âầấẩẫậ","eèéẻẽẹ","êềếểễệ","iìíỉĩị","oòóỏõọ","ôồốổỗộ","ơờớởỡợ","uùúủũụ","ưừứửữự","yỳýỷỹỵ","dđ"];
+const COMMON = "abcdeghiklmnoprstuvxyăâêôơưđ".split("");
+const familyOf = c => FAMILIES.find(f => f.includes(c));
+
+const $ = id => document.getElementById(id);
+const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const up = c => c.toLocaleUpperCase("vi");
+
+let state = { good: 0, bad: 0, rounds: 0, deck: [], cur: null };
+let round = null; // { chars, blanks:[idx], answer:{idx:char}, tiles:[{c,used}], filled:{idx:tileIndex}, done }
+
+function nextAnimal() {
+  if (!state.deck.length) state.deck = shuffle(ANIMALS.map((_, i) => i)).filter(i => i !== state.cur);
+  state.cur = state.deck.pop();
+  return ANIMALS[state.cur];
+}
+
+function newRound() {
+  const [emoji, name] = nextAnimal();
+  const chars = Array.from(name.normalize("NFC"));
+  const letterIdx = chars.map((c, i) => c === " " ? -1 : i).filter(i => i >= 0);
+  const blanks = shuffle(letterIdx).slice(0, 3).sort((a, b) => a - b);
+  const answers = blanks.map(i => chars[i]);
+
+  // Build 8 tiles: the 3 right letters, a tone-mark lookalike for each when possible, then fillers.
+  const pool = [...answers];
+  const taken = new Set(answers);
+  for (const c of answers) {
+    const fam = familyOf(c);
+    if (fam) {
+      const opts = shuffle(Array.from(fam).filter(x => !taken.has(x)));
+      if (opts[0]) { pool.push(opts[0]); taken.add(opts[0]); }
+    }
+  }
+  for (const c of shuffle(COMMON)) { if (pool.length >= 8) break; if (!taken.has(c)) { pool.push(c); taken.add(c); } }
+
+  round = { emoji, name, chars, blanks, tiles: shuffle(pool).map(c => ({ c, used: false })), filled: {}, done: false };
+  render();
+  const pic = $("pic"); pic.classList.remove("pop"); void pic.offsetWidth; pic.classList.add("pop");
+}
+
+function render() {
+  $("pic").textContent = round.emoji;
+  $("roundLabel").textContent = "Lượt " + (state.rounds + (round.done ? 0 : 1));
+  $("sGood").textContent = state.good; $("sBad").textContent = state.bad; $("sRound").textContent = state.rounds;
+
+  const word = $("word"); word.innerHTML = "";
+  const activeIdx = round.blanks.find(i => round.filled[i] === undefined);
+  let group = document.createElement("div"); group.className = "w"; word.appendChild(group);
+  round.chars.forEach((c, i) => {
+    if (c === " ") { group = document.createElement("div"); group.className = "w"; word.appendChild(group); return; }
+    const el = document.createElement("div");
+    el.className = "ch";
+    if (!round.blanks.includes(i)) { el.classList.add("fixed"); el.textContent = up(c); }
+    else if (round.done) {
+      const t = round.filled[i];
+      const guess = t !== undefined ? round.tiles[t].c : "";
+      el.classList.add(guess === c ? "right" : "wrong");
+      el.textContent = up(c);
+    } else {
+      el.classList.add("blank");
+      const t = round.filled[i];
+      if (t !== undefined) { el.classList.add("filled"); el.textContent = up(round.tiles[t].c); }
+      if (i === activeIdx) el.classList.add("active");
+      el.setAttribute("role", "button"); el.tabIndex = 0;
+      el.setAttribute("aria-label", t !== undefined ? "Bỏ chữ " + round.tiles[t].c : "Ô trống");
+      const clear = () => { if (round.filled[i] !== undefined) { round.tiles[round.filled[i]].used = false; delete round.filled[i]; render(); } };
+      el.onclick = clear; el.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); clear(); } };
+    }
+    group.appendChild(el);
+  });
+
+  const tiles = $("tiles"); tiles.innerHTML = "";
+  round.tiles.forEach((t, k) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "tile"; b.textContent = up(t.c);
+    b.disabled = t.used || round.done;
+    b.onclick = () => pick(k);
+    tiles.appendChild(b);
+  });
+
+  const full = round.blanks.every(i => round.filled[i] !== undefined);
+  $("checkBtn").disabled = !full;
+  $("checkBtn").hidden = round.done;
+  $("clearBtn").hidden = round.done;
+  $("nextBtn").hidden = !round.done;
+  $("hint").hidden = round.done;
+  $("tiles").hidden = round.done;
+}
+
+function pick(k) {
+  if (round.done) return;
+  const slot = round.blanks.find(i => round.filled[i] === undefined);
+  if (slot === undefined) return;
+  round.tiles[k].used = true; round.filled[slot] = k;
+  render();
+}
+
+function clearAll() {
+  round.tiles.forEach(t => t.used = false); round.filled = {}; render();
+}
+
+function check() {
+  const ok = round.blanks.every(i => round.tiles[round.filled[i]].c === round.chars[i]);
+  round.done = true; state.rounds++;
+  const fb = $("feedback"); fb.hidden = false;
+  if (ok) {
+    state.good++;
+    fb.className = "feedback good";
+    fb.innerHTML = shuffle(["Giỏi quá!", "Đúng rồi!", "Tuyệt vời!", "Xuất sắc!"])[0] + " 🎉<small>Đây là " + round.name + ".</small>";
+    burst();
+  } else {
+    state.bad++;
+    fb.className = "feedback bad";
+    fb.innerHTML = "Chưa đúng rồi!<small>Đáp án là: <b>" + up(round.name) + "</b>. Lần sau cố lên nhé!</small>";
+  }
+  render();
+  $("nextBtn").focus();
+}
+
+function burst() {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const card = $("play");
+  const icons = ["⭐", "🎈", "✨", "🌟", "🎉"];
+  for (let n = 0; n < 14; n++) {
+    const s = document.createElement("span");
+    s.className = "burst"; s.textContent = icons[n % icons.length];
+    s.style.left = "50%"; s.style.top = "30%";
+    const a = Math.random() * Math.PI * 2, r = 90 + Math.random() * 120;
+    s.style.setProperty("--dx", Math.cos(a) * r + "px"); s.style.setProperty("--dy", Math.sin(a) * r + "px");
+    card.appendChild(s); setTimeout(() => s.remove(), 1100);
+  }
+}
+
+// Only ever speak with a real Vietnamese voice. Without one the browser falls back to an
+// English voice, which mispronounces Vietnamese, so we stay silent instead.
+let viVoice = null;
+function findViVoice() {
+  try {
+    if (!("speechSynthesis" in window)) return null;
+    const voices = speechSynthesis.getVoices();
+    return voices.find(v => /^vi([-_]|$)/i.test(v.lang || "")) ||
+           voices.find(v => /vietnam|tiếng việt|viet/i.test(v.name || "")) || null;
+  } catch (e) { return null; }
+}
+function refreshVoice() {
+  viVoice = findViVoice();
+  const b = $("hearBtn");
+  b.disabled = !viVoice;
+  b.textContent = viVoice ? "🔊 Nghe tên" : "🔇 Máy chưa có giọng đọc tiếng Việt";
+  b.title = viVoice ? "" : "Cài giọng đọc tiếng Việt trong cài đặt của máy để nghe tên con vật.";
+}
+
+function speak(text) {
+  try {
+    if (!viVoice) viVoice = findViVoice();
+    if (!viVoice) return;
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.voice = viVoice; u.lang = viVoice.lang || "vi-VN"; u.rate = 0.85;
+    speechSynthesis.speak(u);
+  } catch (e) {}
+}
+
+function next() { $("feedback").hidden = true; newRound(); }
+
+function stop() {
+  const total = state.good + state.bad;
+  const pct = total ? state.good / total : 0;
+  $("stars").textContent = total === 0 ? "🌱" : pct >= .8 ? "⭐⭐⭐" : pct >= .5 ? "⭐⭐" : "⭐";
+  $("sumTitle").textContent = total === 0 ? "Mình chưa chơi lượt nào!" : pct >= .8 ? "Con giỏi lắm!" : pct >= .5 ? "Làm tốt lắm!" : "Cố gắng thêm nhé!";
+  $("sumText").innerHTML = total === 0 ? "Bấm “Chơi tiếp” để bắt đầu đoán nào."
+    : "Con đã chơi <b>" + total + "</b> lượt: đúng <b>" + state.good + "</b>, sai <b>" + state.bad + "</b>.";
+  $("play").hidden = true; $("summary").hidden = false; $("stopBtn").hidden = true;
+}
+
+function resume() {
+  $("summary").hidden = true; $("play").hidden = false; $("stopBtn").hidden = false;
+  if (round.done) next();
+}
+
+function restart() {
+  state = { good: 0, bad: 0, rounds: 0, deck: [], cur: null };
+  $("summary").hidden = true; $("play").hidden = false; $("stopBtn").hidden = false;
+  $("feedback").hidden = true;
+  newRound();
+}
+
+// Night light
+const root = document.documentElement;
+function isNight() {
+  if (root.classList.contains("night")) return true;
+  if (root.classList.contains("day")) return false;
+  if (root.dataset.theme === "dark") return true;
+  if (root.dataset.theme === "light") return false;
+  return matchMedia("(prefers-color-scheme: dark)").matches;
+}
+function paintNightBtn() {
+  const n = isNight();
+  $("nightBtn").setAttribute("aria-pressed", String(n));
+  $("nightOrb").textContent = n ? "🌙" : "☀️";
+  $("nightText").textContent = n ? "Tắt đèn ngủ" : "Bật đèn ngủ";
+  root.classList.toggle("is-night", n);
+}
+$("nightBtn").onclick = () => {
+  const n = !isNight();
+  root.classList.toggle("night", n); root.classList.toggle("day", !n);
+  try { localStorage.setItem("nightLight", n ? "1" : "0"); } catch (e) {}
+  paintNightBtn();
+};
+try { const s = localStorage.getItem("nightLight"); if (s === "1") root.classList.add("night"); else if (s === "0") root.classList.add("day"); } catch (e) {}
+matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", paintNightBtn);
+paintNightBtn();
+
+$("checkBtn").onclick = check;
+$("clearBtn").onclick = clearAll;
+$("nextBtn").onclick = next;
+$("stopBtn").onclick = stop;
+$("restartBtn").onclick = restart;
+$("restartBtn2").onclick = restart;
+$("resumeBtn").onclick = resume;
+
+// Physical keyboard: typing a letter picks a matching tile; Backspace removes the last one; Enter checks / goes next.
+document.addEventListener("keydown", e => {
+  if (!$("summary").hidden) return;
+  if (e.key === "Enter" && e.target.tagName !== "BUTTON") { if (round.done) next(); else if (!$("checkBtn").disabled) check(); return; }
+  if (e.key === "Backspace" && !round.done) {
+    const last = [...round.blanks].reverse().find(i => round.filled[i] !== undefined);
+    if (last !== undefined) { round.tiles[round.filled[last]].used = false; delete round.filled[last]; render(); }
+    return;
+  }
+  if (e.key.length === 1 && !round.done) {
+    const k = round.tiles.findIndex(t => !t.used && t.c === e.key.toLocaleLowerCase("vi").normalize("NFC"));
+    if (k >= 0) pick(k);
+  }
+});
+
+// Keep the score when the page is updated while open.
+window.claude?.hot?.snapshot?.(() => ({ good: state.good, bad: state.bad, rounds: state.rounds }));
+const start = d => { if (d && typeof d.good === "number") { state.good = d.good; state.bad = d.bad; state.rounds = d.rounds; } newRound(); };
+window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+</script>
+</body>
+</html>
